@@ -32,6 +32,7 @@ from PIL import Image
 from tqdm.auto import tqdm
 
 from .configuration_utils import ConfigMixin
+from .tokenizer_utils import TextualInversionLoaderMixin
 from .dynamic_modules_utils import get_class_from_dynamic_module
 from .hub_utils import http_user_agent
 from .modeling_utils import _LOW_CPU_MEM_USAGE_DEFAULT
@@ -135,7 +136,7 @@ def is_safetensors_compatible(info) -> bool:
     return is_safetensors_compatible
 
 
-class DiffusionPipeline(ConfigMixin):
+class DiffusionPipeline(ConfigMixin, TextualInversionLoaderMixin):
     r"""
     Base class for all models.
 

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .oneflow_graph_compile_cache import OneFlowGraphCompileCache
 import importlib
 import inspect
 import os
@@ -33,6 +34,7 @@ from PIL import Image
 from tqdm.auto import tqdm
 
 from .configuration_utils import ConfigMixin
+from .tokenizer_utils import TextualInversionLoaderMixin
 from .dynamic_modules_utils import get_class_from_dynamic_module
 from .hub_utils import http_user_agent
 from .modeling_utils import _LOW_CPU_MEM_USAGE_DEFAULT
@@ -54,8 +56,6 @@ from .utils import (
 def is_accelerate_available():
     return False
 
-
-from .oneflow_graph_compile_cache import OneFlowGraphCompileCache
 
 if is_transformers_available():
     import transformers
@@ -206,7 +206,7 @@ class GraphCacheMixin:
         self.graph_compile_cache.load_graph(path, graph_class2init_args)
 
 
-class OneFlowDiffusionPipeline(ConfigMixin, GraphCacheMixin):
+class OneFlowDiffusionPipeline(ConfigMixin, GraphCacheMixin, TextualInversionLoaderMixin):
     r"""
     Base class for all models.
 
@@ -725,7 +725,7 @@ class OneFlowDiffusionPipeline(ConfigMixin, GraphCacheMixin):
                 for class_name, class_candidate in class_candidates.items():
                     if class_candidate is not None and issubclass(class_obj, class_candidate):
                         load_method_name = importable_classes[class_name][1]
-
+                load_method_name = 'from_pretrained'
                 if load_method_name is None:
                     none_module = class_obj.__module__
                     is_dummy_path = none_module.startswith(DUMMY_MODULES_FOLDER) or none_module.startswith(
@@ -751,10 +751,10 @@ class OneFlowDiffusionPipeline(ConfigMixin, GraphCacheMixin):
 
                 is_diffusers_model = issubclass(class_obj, diffusers.ModelMixin)
                 is_transformers_model = (
-                        is_transformers_available()
-                        and issubclass(class_obj, PreTrainedModel)
-                        and version.parse(version.parse(transformers.__version__).base_version) >= version.parse(
-                    "4.20.0")
+                    is_transformers_available()
+                    and issubclass(class_obj, PreTrainedModel)
+                    and version.parse(version.parse(transformers.__version__).base_version) >= version.parse(
+                        "4.20.0")
                 )
 
                 # When loading a transformers model, if the device_map is None, the weights will be initialized as opposed to diffusers.

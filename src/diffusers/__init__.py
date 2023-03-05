@@ -148,3 +148,4 @@ from .pipelines import OneFlowStableDiffusionImg2ImgPipeline
 from .pipelines import OneFlowStableDiffusionInpaintPipeline, OneFlowStableDiffusionInpaintPipelineLegacy
 from .pipeline_oneflow_utils import OneFlowDiffusionPipeline
 from .modeling_oneflow_utils import OneFlowModelMixin
+from .tokenizer_utils import MultiTokenCLIPTokenizer, TextualInversionLoaderMixin
