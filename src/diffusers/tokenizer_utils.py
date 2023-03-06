@@ -1,6 +1,5 @@
 import oneflow as torch
 from typing import Callable, Dict, Optional, Union, List
-import boto3
 from urllib.parse import urlparse
 from transformers import PreTrainedModel, PreTrainedTokenizer, CLIPTokenizer
 import copy
@@ -19,7 +18,6 @@ class TextualInversionLoaderMixin:
         self,
         embedding_path_dict_or_list: Union[Dict[str, str], List[Dict[str, str]]],
         allow_replacement: bool = False,
-        boto3_session: Optional["boto3.Session"] = None,
     ):
         r"""
         Loads textual inversion embeddings and adds them to the tokenizer's vocabulary and the text encoder's embeddings.
@@ -34,33 +32,23 @@ class TextualInversionLoaderMixin:
             allow_replacement (`bool`, *optional*, defaults to `False`):
                 Whether to allow replacement of existing tokens in the tokenizer's vocabulary. If `False`
                 and a token is already in the vocabulary, an error will be raised.
-            boto3_session (`boto3.Session`, *optional*):
-                Boto3 session to use to load the embeddings from S3. If not provided and loading from s3, will use the default boto3 credential.
-                See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html for more details.
         Returns:
             None
         """
         # Validate that inheriting class instance contains required attributes
         self._validate_method_call(self.load_textual_inversion_embeddings)
 
-        self.boto3_session = boto3_session
-
         if isinstance(embedding_path_dict_or_list, dict):
             for token, embedding_path in embedding_path_dict_or_list.items():
-                if embedding_path.startswith("s3://"):
-                    embedding_dict = self._load_from_s3(embedding_path)
-                else:
-                    embedding_dict = torch.load(embedding_path, map_location=self.text_encoder.device)
+                
+                embedding_dict = torch.load(embedding_path, map_location=self.text_encoder.device)
                 embedding, is_multi_vec_token = self._extract_embedding_from_dict(embedding_dict)
 
                 self._validate_token_update(token, allow_replacement, is_multi_vec_token)
                 self.add_textual_inversion_embedding(token, embedding)
         elif isinstance(embedding_path_dict_or_list, list):
             for embedding_path in embedding_path_dict_or_list:
-                if embedding_path.startswith("s3://"):
-                    embedding_dict = self._load_from_s3(embedding_path)
-                else:
-                    embedding_dict = torch.load(embedding_path, map_location=self.text_encoder.device)
+                embedding_dict = torch.load(embedding_path, map_location=self.text_encoder.device)
                 token = self._extract_token_from_dict(embedding_dict)
                 embedding, is_multi_vec_token = self._extract_embedding_from_dict(embedding_dict)
 
@@ -244,28 +232,6 @@ class TextualInversionLoaderMixin:
                 raise ValueError(
                     f"Token {token} already in tokenizer vocabulary. Please choose a different token name."
                 )
-
-    # @lru_cache
-    def _load_from_s3(self, s3_uri):
-        r"""Loads a file from the given s3 URI into working memory.
-        Arguments:
-            s3_uri (`str`):
-                The s3 URI to load the embedding file from.
-        Returns:
-            `torch.Tensor`:
-                The embedding to be added to the text encoder's embedding matrix.
-        """
-        assert s3_uri[:5] == "s3://", f"Invalid s3 URI: {s3_uri}"
-
-        s3_client = self.boto3_session.client("s3") if self.boto3_session else boto3.client("s3")
-
-        # Parse URI for bucket and key
-        s3_bucket, s3_key = urlparse(s3_uri).netloc, urlparse(s3_uri).path.lstrip("/")
-
-        with BytesIO() as f:
-            s3_client.download_fileobj(Bucket=s3_bucket, Key=s3_key, Fileobj=f)
-            f.seek(0)
-            return torch.load(f, map_location=self.text_encoder.device)
 
 
 class MultiTokenCLIPTokenizer(CLIPTokenizer):
